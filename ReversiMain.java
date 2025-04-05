@@ -1,13 +1,4 @@
 package reversi;
-import java.awt.BorderLayout;
-import java.awt.GridLayout;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
-
-import javax.swing.JButton;
-import javax.swing.JFrame;
-import javax.swing.JLabel;
-import javax.swing.JPanel;
 
 public class ReversiMain
 {
@@ -23,8 +14,9 @@ public class ReversiMain
 		
 		// Choose ONE of the views
 		//view = new TextView();
-		view = new FakeTextView();
-		//view = new GUIView(); // You need to implement this class yourself!
+		//view = new FakeTextView();
+		view = new GUIView(); // You need to implement this class yourself!
+		//view = new TestYourController();
 		
 		// Choose one controller
 		controller = new SimpleController();
