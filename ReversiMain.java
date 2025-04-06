@@ -15,7 +15,7 @@ public class ReversiMain
 		// Choose ONE of the views
 		//view = new TextView();
 		//view = new FakeTextView();
-		view = new GUIView(); // You need to implement this class yourself!
+		view = new GUIView(); 
 		//view = new TestYourController();
 		
 		// Choose one controller

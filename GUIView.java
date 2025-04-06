@@ -33,7 +33,6 @@ public class GUIView implements IView {
         wGrid = new Grid(1,controller,model);
         bGrid = new Grid(2,controller,model);
 
-        //TODO: Handle separate exiting behaviour (e.g. white closes, black stays open)
 		white.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 		black.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 
@@ -59,6 +58,7 @@ public class GUIView implements IView {
                 controller.doAutomatedMove(1);
             }
         });
+
         Button blackAI = new Button("Greedy AI (play black)");
         blackAI.addMouseListener(new MouseAdapter() {
             @Override

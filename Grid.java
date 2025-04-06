@@ -21,10 +21,10 @@ public class Grid extends JPanel {
         ArrayList<Square> inner = new ArrayList<Square>();
 
         for (int j=0; j<model.getBoardWidth(); j++){
-          Square s = new Square(color, i, j, cont);
           int c = model.getBoardContents(i, j);
+          Square s = new Square(1, i, j, cont);
 
-          if (c != 0)
+          if (c != 0) 
             s.addCounter(c);
 
           add(s);
@@ -32,7 +32,9 @@ public class Grid extends JPanel {
         }
         squares.add(inner);
       }
-    } else if (color==2) {
+    } 
+    //Invert the black grid
+    else if (color==2) {
       for (int i=model.getBoardHeight()-1; i>=0; i--){
         ArrayList<Square> inner = new ArrayList<Square>();
 
