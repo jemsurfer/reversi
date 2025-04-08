@@ -19,8 +19,8 @@ public class ReversiMain
 		//view = new TestYourController();
 		
 		// Choose one controller
-		controller = new SimpleController();
-		//controller = new ReversiController(); // You need to implement this class yourself!
+		//controller = new SimpleController();
+		controller = new ReversiController(); // You need to implement this class yourself!
 		
 		// Don't change the lines below here, which connect things together
 		
