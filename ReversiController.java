@@ -19,8 +19,6 @@ public class ReversiController implements IController {
 
     @Override
     public void startup() {
-        //TODO: Figure out why the board isn't showing this
-        //Set the initial 4 counters
         int width = model.getBoardWidth();
         int height = model.getBoardHeight();
         //Set all values to zero 
@@ -147,6 +145,7 @@ public class ReversiController implements IController {
         int opposite;
 
         if (model.getBoardContents(x, y)!=0){
+            System.out.println("Invalid - piece already in position");
             return false;
         }
 
@@ -158,11 +157,12 @@ public class ReversiController implements IController {
             opposite=0;
         }
 
-        int[] adj = getAdjacentSquares(x, y, color);
-        System.out.println(Arrays.toString(adj));
+        int[] adj = getAdjacentSquares(x, y);
 
-        int opp=0;
-        int[][] offsets = {{-1,-1},{0,-1},{1,-1},{-1,0},{0,0},{1,0},{-1,1},{0,1},{1,1}};
+        int opp;
+
+        //List of coordinate offsets for each adjacent square 
+        int[][] offsets = {{-1,-1},{0,-1},{1,-1},{-1,0},{1,0},{-1,1},{0,1},{1,1}};
 
         //TODO: O(2^n) worst case - improve this
         for (int i=0; i<8; i++) {
@@ -171,6 +171,7 @@ public class ReversiController implements IController {
                 int[] curOffset = offsets[i];
                 int xof = curOffset[0];
                 int yof = curOffset[1];
+                System.out.println("found adjacent square of opposite color, index"+i);
                 //If we can find a tile of the same color, then the move is valid 
                 return lookForSame(x, y, color, opp, xof, yof, i);
             }
@@ -181,31 +182,48 @@ public class ReversiController implements IController {
     //Look along the row/col/diagonal until we find a tile of the original color
     //Or reach the end of the list and return false
     boolean lookForSame(int x, int y, int color, int opp, int xof, int yof, int index){
-       int[] adj = getAdjacentSquares(x, y, color);
+        x+=xof;
+        y+=yof;
 
-       if (adj[index]==opp){
-            lookForSame(x+xof, y+yof, color, opp, xof, yof, index);
-       } else if (adj[index]==color){
+       if (x>model.getBoardWidth() || y>model.getBoardHeight() || x<0 || y<0){
+        return false;
+       }
+
+       System.out.println(xof +" " +yof);
+       int adj = getAdjacentSquares(x, y)[index];
+
+       if (adj==opp){
+            System.out.println("recursing");
+            return lookForSame(x, y, color, opp, xof, yof, index);
+       } else if (adj==color){
+            System.out.println("Found valid path");
             return true;
        }
 
+        System.out.println("failed to find valid path "+ adj);
         return false;
     }
 
-    int[] getAdjacentSquares(int x, int y, int color) {
+    int[] getAdjacentSquares(int x, int y) {
         int[] adj = new int[8];
         //Top left to bottom right (w.r.t white's perspective)
 
         int k=0;
+        int height = model.getBoardHeight()-1;
+        int width = model.getBoardWidth()-1;
+
         for (int i=-1;i<2;i++){
             for (int j=-1;j<2;j++){
                 if (i==j && i==0)
                     continue;
+                int xof = x+i;
+                int yof = y+j;
+                if (xof<0 || xof>width || yof<0 || yof>height) {
+                    adj[k++]=0;
+                    continue;
+                }
                 adj[k++] = model.getBoardContents(x+i, y+j);
             }
-        }
-        if (color == 2){
-            Collections.reverse(Arrays.asList(adj));
         }
         return adj;
     }

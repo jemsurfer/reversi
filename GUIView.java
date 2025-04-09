@@ -70,7 +70,7 @@ public class GUIView implements IView {
         MouseAdapter restart = new MouseAdapter() {
             @Override
             public void mousePressed(MouseEvent e){
-                model.clear(0);
+                controller.startup();
                 refreshView();
             }
         };

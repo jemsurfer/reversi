@@ -20,7 +20,7 @@ public class ReversiMain
 		
 		// Choose one controller
 		//controller = new SimpleController();
-		controller = new ReversiController(); // You need to implement this class yourself!
+		controller = new ReversiController(); 
 		
 		// Don't change the lines below here, which connect things together
 		
