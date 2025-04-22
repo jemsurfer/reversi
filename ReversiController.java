@@ -1,5 +1,7 @@
 package reversi;
 
+import java.util.List;
+import java.util.stream.Collectors;
 import java.util.ArrayList;
 
 public class ReversiController implements IController {
@@ -88,6 +90,7 @@ public class ReversiController implements IController {
 
     @Override
     public void squareSelected(int player, int x, int y) {
+
         //Don't let the player go if it's not their turn
         if (model.hasFinished())
             return;
@@ -97,16 +100,21 @@ public class ReversiController implements IController {
             return;
         }
 
-        Tuple<Boolean,ArrayList<Tuple<Integer,Integer>>> tup = isLegalMove(x, y, player);
-        if (!tup.first()) {
+        List<Tuple<Integer,Integer>> affectedSquares = listAffectedSquares(x, y, player, new ArrayList<>());
+
+        if (affectedSquares.size()==0) {
             view.feedbackToUser(player, new String("Illegal move!"));
             return;
         }
 
         //Update the board to reflect the new piece
         model.setBoardContents(x, y, player);
-        //And flip the respective squares
-        flipSquares(tup.second());
+
+        //And flip the respective squares (recursing to flip other affected squares)
+        flipSquares(affectedSquares);
+
+        update();
+        view.refreshView();
 
         //Send a message to the user who just played
         String msg = new String(String.format("Your last move was (%s,%s)", x, y));
@@ -149,7 +157,7 @@ public class ReversiController implements IController {
     }
 
     private Tuple<Integer,Integer> getGreedyMove(int player) {
-        ArrayList<Tuple<Tuple<Integer,Integer>,Integer>> moves =  listLegalMoves(player); 
+        List<Tuple<Tuple<Integer,Integer>,Integer>> moves =  listLegalMoves(player); 
 
         int max=0;
         Tuple<Integer,Integer> maxPoint = new Tuple<>(null, null); 
@@ -164,15 +172,15 @@ public class ReversiController implements IController {
     }
 
     //Returns a list which looks like [((x1,y1),score1),((x2,y2),score2),...]
-    ArrayList<Tuple<Tuple<Integer,Integer>,Integer>> listLegalMoves(int color) {
-        ArrayList<Tuple<Tuple<Integer,Integer>,Integer>> l = new ArrayList<>();
-        Tuple<Boolean,ArrayList<Tuple<Integer,Integer>>> tup; 
+    List<Tuple<Tuple<Integer,Integer>,Integer>> listLegalMoves(int color) {
+        List<Tuple<Tuple<Integer,Integer>,Integer>> l = new ArrayList<>();
+        List<Tuple<Integer,Integer>> affectedSquares; 
 
         for (int i=0;i<8;i++)
             for (int j=0;j<8;j++){
-                tup=isLegalMove(i, j, color);
-                if (tup.first()) {
-                    l.add(new Tuple<>(new Tuple<>(i,j),tup.second().size()));
+                affectedSquares=listAffectedSquares(i, j, color, new ArrayList<>());
+                if (affectedSquares.size()!=0) {
+                    l.add(new Tuple<>(new Tuple<>(i,j),affectedSquares.size()));
                 }
             }
 
@@ -189,25 +197,26 @@ public class ReversiController implements IController {
         return full;
     }
 
-    Tuple<Boolean, ArrayList<Tuple<Integer,Integer>>> isLegalMove(int x, int y, int color) {
+    List<Tuple<Integer,Integer>> listAffectedSquares(int x, int y, int color, List<Tuple<Integer,Integer>> visited) {
+
         //Move is legal if there's a square of opposite color adjacent to given square
         //and a square of the same color at some point in the line
         //I'll do this recursively
-
         int opposite;
-        ArrayList<Tuple<Integer,Integer>> squaresToFlip = new ArrayList<>();
-        Tuple<Boolean,ArrayList<Tuple<Integer,Integer>>> res = new Tuple<>(false, squaresToFlip);
+        List<Tuple<Integer,Integer>> squaresToFlip = new ArrayList<>();
+        Tuple<Integer,Integer> point = new Tuple<>(x,y);
 
         //Can't put a counter over another counter
-        if (model.getBoardContents(x, y)!=0){
-            return res;
+        //Ignore visited squares
+        //Ignore colors other than 1 and 2
+        if (model.getBoardContents(x, y)!=0 || visited.contains(point) || (color!=1 && color!=2)){
+            return squaresToFlip;
         }
 
         //Don't accept color arguments apart from 1 and 2
         switch (color) {
             case 1: {opposite=2;break;}
-            case 2: {opposite=1;break;}
-            default: {return res;}
+            default: {opposite=1;}
         }
 
         int[] adj = getAdjacentSquares(x, y);
@@ -227,37 +236,60 @@ public class ReversiController implements IController {
                 int yof = curOffset[1];
 
                 //If we can find a tile of the same color, then the move is valid 
-                ArrayList<Tuple<Integer,Integer>> affectedSquares = new ArrayList<>();
+                List<Tuple<Integer,Integer>> affectedSquares = new ArrayList<>();
+
                 if (lookForSame(x, y, color, opp, xof, yof, i, affectedSquares)) {
-                    affectedSquares.add(new Tuple<Integer,Integer>(x+xof,y+yof));
+
+                    affectedSquares.add(new Tuple<>(x+xof,y+yof));
+                    //Create a backup as we can't modify a list while iterating through it
+                    List<Tuple<Integer,Integer>> backup = new ArrayList<>(affectedSquares);
+
+
+                    //For each of the squares being flipped, check wether they also cause squares to be flipped 
+                    for (Tuple<Integer,Integer> s: backup) {
+                        int backupCol = model.getBoardContents(s.first(), s.second());
+
+                        //Hack: set the current square to zero, so we don't return an empty list
+                        model.setBoardContents(s.first(), s.second(), 0);
+
+                        //Recurse with one of these squares to be flipped
+                        affectedSquares.addAll(listAffectedSquares(s.first(), s.second(), color, visited)); 
+                        
+                        //Set the square back to the color it's supposed to be
+                        model.setBoardContents(s.first(), s.second(), backupCol);
+                    }
+
+
                     squaresToFlip.addAll(affectedSquares); 
-                    res.first(true); 
                 }
+
             }
         }
-        res.second(squaresToFlip);
-        return res;
+        return squaresToFlip.stream().distinct().toList();
     }
 
-    void flipSquares(ArrayList<Tuple<Integer,Integer>> affectedSquares) {
+    void flipSquares(List<Tuple<Integer,Integer>> affectedSquares) {
+
         for (Tuple<Integer,Integer> p : affectedSquares) {
+        
             int x = p.first();
             int y = p.second();
-            int cur = model.getBoardContents(x,y);
+            int opp = 0;
 
-            switch (cur){
-                case 1:{model.setBoardContents(x, y, 2);break;}
-                case 2:{model.setBoardContents(x, y, 1);}
+
+            switch (model.getBoardContents(x, y)){
+                case 1:{opp=2;break;}
+                case 2:{opp=1;}
             }
+
+            model.setBoardContents(x, y, opp);
         }
-        update();
-        view.refreshView();
     }
 
     //Look along the row/col/diagonal until we find a tile of the original color
     //Or reach the end of the list and return false
     //Keep track of opposite squares to be flipped after validation
-    boolean lookForSame(int x, int y, int color, int opp, int xof, int yof, int index, ArrayList<Tuple<Integer,Integer>> affectedSquares){
+    boolean lookForSame(int x, int y, int color, int opp, int xof, int yof, int index, List<Tuple<Integer,Integer>> affectedSquares){
         x+=xof;
         y+=yof;
 
@@ -267,12 +299,13 @@ public class ReversiController implements IController {
 
        int adj = getAdjacentSquares(x, y)[index];
 
-       if (adj==opp){
-            affectedSquares.add(new Tuple<Integer,Integer>(x+xof,y+yof));
-            return lookForSame(x, y, color, opp, xof, yof, index, affectedSquares);
-       } else if (adj==color){
-            return true;
-       }
+        //If we've found a square of the opposite color
+        if (adj==opp){
+                //Add it to the affectedSquares array
+                affectedSquares.add(new Tuple<Integer,Integer>(x+xof,y+yof));
+                return lookForSame(x, y, color, opp, xof, yof, index, affectedSquares);
+        } else if (adj==color)
+                return true;
 
         return false;
     }
