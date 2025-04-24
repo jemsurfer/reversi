@@ -108,10 +108,10 @@ public class GUIView implements IView {
 
     @Override
     public void feedbackToUser(int player, String message) {
-        if (player==1){
+        if (player==2){
             whStatus.setText(message);
             white.revalidate();
-        }else if (player==2){
+        }else if (player==1){
             blStatus.setText(message);
             black.revalidate();
         }

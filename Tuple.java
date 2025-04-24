@@ -41,6 +41,7 @@ public class Tuple<A,B> {
         return false;
     }
 
+    //Ditto
     @Override
     public int hashCode(){
         return toString().hashCode();

@@ -1,13 +1,13 @@
 package reversi;
 
 import java.util.List;
-import java.util.stream.Collectors;
 import java.util.ArrayList;
 
 public class ReversiController implements IController {
     IModel model;
     IView view;
-
+    String[] playerNames = {"None","White","Black"};
+    
     @Override
     public void initialise(IModel model, IView view) {
         this.model=model;
@@ -19,17 +19,19 @@ public class ReversiController implements IController {
     public void startup() {
         int width = model.getBoardWidth();
         int height = model.getBoardHeight();
-        //Set all values to zero 
+
+        //Set all values to zero (as startup is also used to ) 
         for (int i=0; i<height; i++){
             for (int j=0; j<width; j++){
                 model.setBoardContents(i, j, 0);
             }
         }
 
-        //Black goes first
-        model.setPlayer(2);
-        view.feedbackToUser(1,new String(""));
-        view.feedbackToUser(2,new String("Black - your turn!"));
+        //Black goes first in every version of othello
+        //apart from jason's version apparently
+        model.setPlayer(1);
+        view.feedbackToUser(1,new String("White player - choose where to put your piece"));
+        view.feedbackToUser(2,new String("Black player - not your turn"));
 
         //Mark board unfinished
         model.setFinished(false);
@@ -45,12 +47,24 @@ public class ReversiController implements IController {
     public void update() {
         /* - If the controller uses the finished flag (in the model), then it should look at 
         * the board (in the model) and set the finished flag, or not, according to whether the game has finished.*/
-        if (!model.hasFinished()) {
-            //The game is over when the board is full or there are no next possible moves
-            int len = listLegalMoves(model.getPlayer()).size();
 
-            if (boardFull() || len==0)
-                model.setFinished(true);
+        int curPlayer = model.getPlayer();
+
+        //The game is over when the board is full or there are no next possible moves
+        int curPlayerMoves = listLegalMoves(curPlayer).size();
+        int oppPlayer = oppositePlayer(curPlayer);
+        int oppMoves = listLegalMoves(oppPlayer).size();
+
+        //We're done if the board is full or neither player can go
+        if (boardFull() || (curPlayerMoves==oppMoves && oppMoves==0))
+            model.setFinished(true);
+        else
+            model.setFinished(false);
+
+        if (curPlayerMoves==0 && oppMoves!=0) {
+            model.setPlayer(oppPlayer);
+            oppPlayer=curPlayer;
+            curPlayer=model.getPlayer();
         }
 
         /* - If the controller uses the player number (in the model), then it should check it
@@ -61,46 +75,72 @@ public class ReversiController implements IController {
         * (model.getPlayer()) and whether the game has finished or not.*/
 
         if (!model.hasFinished()) {
-            int curPlayer = model.getPlayer();
-            String msg;
+            String myTurn = String.format("%s player - choose where to put your piece", playerNames[curPlayer]);
+            String notMyTurn = String.format("%s player - not your turn", playerNames[oppPlayer]);
 
-            if (curPlayer == 1) {
-                msg = new String("White - your turn!");
-            } else {
-                msg = new String("Black - your turn!");
-            }
-            view.feedbackToUser(curPlayer, msg);
+            view.feedbackToUser(oppPlayer,notMyTurn); 
+            view.feedbackToUser(curPlayer, myTurn);
         } else{
             Tuple<Integer,Integer> pieces = countPieces();
-            String win = new String("You win!!");
-            if (pieces.first()>pieces.second()){
-                view.feedbackToUser(1, new String("Black wins!"));
-                view.feedbackToUser(2, win);
-            } else if (pieces.first()<pieces.second()){
-                view.feedbackToUser(1, win);
-                view.feedbackToUser(2, new String("White wins!"));
-            }else{
-                String draw = new String("It's a draw?!?");
+
+            int black = pieces.first();
+            int white = pieces.second();
+
+            if (white==black) {
+                String draw = String.format("Draw. Both players ended with %s pieces. Reset the game to replay.",white);
                 view.feedbackToUser(1, draw);
                 view.feedbackToUser(2, draw);
+            }else{
+                String winner = new String();
+                String loser = new String();
+                int winnerCount=0;
+                int loserCount=0;
+                
+                if (black>white) {
+                    winner=new String("Black");
+                    loser=new String("White");
+                    winnerCount=black;
+                    loserCount=white;
+                }
+                else if (white>black) {
+                    winner = new String("White");
+                    loser = new String("Black");
+                    winnerCount=white;
+                    loserCount=black;
+                }
+
+                String win = String.format("%s won. %s %d to %s %d. Reset the game to replay.", winner, winner, winnerCount, loser, loserCount);
+
+                view.feedbackToUser(1, win);
+                view.feedbackToUser(2, win);
             }
         }
 
     }
 
+    int oppositePlayer(int curPlayer) {
+        if (curPlayer==1){
+            return 2;
+        }else if (curPlayer==2){
+            return 1;
+        }
+        return 0;
+    }
+
     @Override
     public void squareSelected(int player, int x, int y) {
 
-        //Don't let the player go if it's not their turn
+        //Don't let the player go if it's not their turn / the game has finished
         if (model.hasFinished())
             return;
 
         if (model.getPlayer()!=player) {
-            view.feedbackToUser(player, new String("Not your turn!"));
+            String notMyTurn = String.format("%s player - not your turn", playerNames[oppositePlayer(player)]);
+            view.feedbackToUser(player, notMyTurn);
             return;
         }
 
-        List<Tuple<Integer,Integer>> affectedSquares = listAffectedSquares(x, y, player, new ArrayList<>());
+        List<Tuple<Integer,Integer>> affectedSquares = listAffectedSquares(x, y, player);
 
         if (affectedSquares.size()==0) {
             view.feedbackToUser(player, new String("Illegal move!"));
@@ -113,18 +153,7 @@ public class ReversiController implements IController {
         //And flip the respective squares (recursing to flip other affected squares)
         flipSquares(affectedSquares);
 
-        update();
-        view.refreshView();
-
-        //Send a message to the user who just played
-        String msg = new String(String.format("Your last move was (%s,%s)", x, y));
-        view.feedbackToUser(player, msg);
-
-        if (player==1){
-            model.setPlayer(2);
-        }else{
-            model.setPlayer(1);
-        }
+        model.setPlayer(oppositePlayer(player));
 
         update();
         view.refreshView();
@@ -178,7 +207,7 @@ public class ReversiController implements IController {
 
         for (int i=0;i<8;i++)
             for (int j=0;j<8;j++){
-                affectedSquares=listAffectedSquares(i, j, color, new ArrayList<>());
+                affectedSquares=listAffectedSquares(i, j, color);
                 if (affectedSquares.size()!=0) {
                     l.add(new Tuple<>(new Tuple<>(i,j),affectedSquares.size()));
                 }
@@ -197,27 +226,22 @@ public class ReversiController implements IController {
         return full;
     }
 
-    List<Tuple<Integer,Integer>> listAffectedSquares(int x, int y, int color, List<Tuple<Integer,Integer>> visited) {
+    List<Tuple<Integer,Integer>> listAffectedSquares(int x, int y, int color) {
 
         //Move is legal if there's a square of opposite color adjacent to given square
         //and a square of the same color at some point in the line
         //I'll do this recursively
-        int opposite;
         List<Tuple<Integer,Integer>> squaresToFlip = new ArrayList<>();
         Tuple<Integer,Integer> point = new Tuple<>(x,y);
 
         //Can't put a counter over another counter
         //Ignore visited squares
         //Ignore colors other than 1 and 2
-        if (model.getBoardContents(x, y)!=0 || visited.contains(point) || (color!=1 && color!=2)){
+        if (model.getBoardContents(x, y)!=0 || (color!=1 && color!=2)){
             return squaresToFlip;
         }
 
-        //Don't accept color arguments apart from 1 and 2
-        switch (color) {
-            case 1: {opposite=2;break;}
-            default: {opposite=1;}
-        }
+        int opposite = oppositePlayer(color);
 
         int[] adj = getAdjacentSquares(x, y);
 
@@ -239,33 +263,28 @@ public class ReversiController implements IController {
                 List<Tuple<Integer,Integer>> affectedSquares = new ArrayList<>();
 
                 if (lookForSame(x, y, color, opp, xof, yof, i, affectedSquares)) {
-
                     affectedSquares.add(new Tuple<>(x+xof,y+yof));
+
+                    //Apparently we don't do cascading changes in this version of the game, so this is all not needed (:
                     //Create a backup as we can't modify a list while iterating through it
-                    List<Tuple<Integer,Integer>> backup = new ArrayList<>(affectedSquares);
-
-
+                    //List<Tuple<Integer,Integer>> backup = new ArrayList<>(affectedSquares);
                     //For each of the squares being flipped, check wether they also cause squares to be flipped 
-                    for (Tuple<Integer,Integer> s: backup) {
-                        int backupCol = model.getBoardContents(s.first(), s.second());
-
-                        //Hack: set the current square to zero, so we don't return an empty list
-                        model.setBoardContents(s.first(), s.second(), 0);
-
-                        //Recurse with one of these squares to be flipped
-                        affectedSquares.addAll(listAffectedSquares(s.first(), s.second(), color, visited)); 
-                        
-                        //Set the square back to the color it's supposed to be
-                        model.setBoardContents(s.first(), s.second(), backupCol);
-                    }
-
+                    //for (Tuple<Integer,Integer> s: backup) {
+                        //int backupCol = model.getBoardContents(s.first(), s.second());
+                        ////Hack: set the current square to zero, so we don't return an empty list
+                        //model.setBoardContents(s.first(), s.second(), 0);
+                        ////Recurse with one of these squares to be flipped
+                        //affectedSquares.addAll(listAffectedSquares(s.first(), s.second(), color, visited)); 
+                        ////Set the square back to the color it's supposed to be
+                        //model.setBoardContents(s.first(), s.second(), backupCol);
+                    //}
 
                     squaresToFlip.addAll(affectedSquares); 
                 }
 
             }
         }
-        return squaresToFlip.stream().distinct().toList();
+        return squaresToFlip;
     }
 
     void flipSquares(List<Tuple<Integer,Integer>> affectedSquares) {
