@@ -25,8 +25,25 @@ public class Tuple<A,B> {
         sec=in;
     }
 
+    //For debugging
     @Override
     public String toString(){
         return String.format("(%d,%d)", fir, sec);
+    }
+
+    //We need equals to use the distinct() method in ReversiController
+    @Override
+    public boolean equals(Object obj) {
+        if (obj.getClass() == this.getClass()){ 
+            Tuple<A,B> other = (Tuple<A,B>) obj;
+            return (other.first()==fir && other.second()==sec);
+        }
+        return false;
+    }
+
+    //Ditto
+    @Override
+    public int hashCode(){
+        return toString().hashCode();
     }
 }
